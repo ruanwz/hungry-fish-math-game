@@ -10,110 +10,12 @@ class MathFishGame {
         this.isPaused = false;
         this.startTime = Date.now();
 
-        // 游戏模式设置
-        this.gameMode = {
-            operation: 'addition', // 'addition' | 'multiplication'
-            maxNumber: 10,        // 1-50范围
-            difficulty: 'normal'
-        };
-
-        // 加载保存的设置
-        this.loadSettings();
-
         // 初始化音效和动画管理器
         this.audioManager = new AudioManager();
         this.particleManager = new ParticleManager(this.container);
         this.rippleManager = new RippleManager(this.container);
 
         this.init();
-    }
-
-    loadSettings() {
-        // 从localStorage加载保存的设置
-        const savedSettings = localStorage.getItem('hungryFishSettings');
-        if (savedSettings) {
-            try {
-                const settings = JSON.parse(savedSettings);
-                if (settings.operation) this.gameMode.operation = settings.operation;
-                if (settings.maxNumber) this.gameMode.maxNumber = Math.min(50, Math.max(1, settings.maxNumber));
-            } catch (e) {
-                console.log('加载设置失败，使用默认设置');
-            }
-        }
-    }
-
-    saveSettings() {
-        // 保存设置到localStorage
-        const settings = {
-            operation: this.gameMode.operation,
-            maxNumber: this.gameMode.maxNumber
-        };
-        localStorage.setItem('hungryFishSettings', JSON.stringify(settings));
-    }
-
-    updateSettings(operation, maxNumber) {
-        // 更新游戏设置
-        const oldOperation = this.gameMode.operation;
-        const oldMaxNumber = this.gameMode.maxNumber;
-
-        this.gameMode.operation = operation;
-        this.gameMode.maxNumber = Math.min(50, Math.max(1, maxNumber));
-
-        // 保存新设置
-        this.saveSettings();
-
-        // 如果设置有变化，重启游戏
-        if (oldOperation !== operation || oldMaxNumber !== this.gameMode.maxNumber) {
-            this.showSettingsChangeNotification();
-            setTimeout(() => {
-                this.restart();
-            }, 1000);
-        }
-    }
-
-    showSettingsChangeNotification() {
-        // 显示设置变更通知
-        const notification = document.createElement('div');
-        notification.id = 'settingsNotification';
-        notification.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            font-size: 18px;
-            text-align: center;
-            z-index: 3000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        notification.textContent = '设置已更改，游戏将重新开始...';
-
-        // 添加动画样式
-        if (!document.getElementById('settingsNotificationStyle')) {
-            const style = document.createElement('style');
-            style.id = 'settingsNotificationStyle';
-            style.textContent = `
-                @keyframes fadeInOut {
-                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        this.container.appendChild(notification);
-
-        // 2秒后移除通知
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 2000);
     }
 
     init() {
@@ -134,16 +36,10 @@ class MathFishGame {
     }
 
     createFish() {
-        // 生成鱼的数字，根据游戏模式和设置
-        let fishNumber;
-        const maxNum = this.gameMode.maxNumber;
-
-        if (this.gameMode.operation === 'addition') {
-            // 加法模式下避免生成1（无法通过正数相加得到1）
-            fishNumber = Math.floor(Math.random() * (maxNum - 1)) + 2; // 生成2-maxNum的数字
-        } else {
-            // 乘法模式下可以生成1-maxNum的任何数字
-            fishNumber = Math.floor(Math.random() * maxNum) + 1; // 生成1-maxNum的数字
+        // 生成鱼的数字，避免生成1，因为在加法游戏中无法通过正数相加得到1
+        let fishNumber = Math.floor(Math.random() * 10) + 1;
+        if (fishNumber === 1) {
+            fishNumber = Math.floor(Math.random() * 9) + 2; // 重新生成2-10的数字
         }
 
         this.fish = {
@@ -253,9 +149,6 @@ class MathFishGame {
         window.addEventListener('resize', () => {
             this.setupCanvas();
         });
-
-        // 设置控件事件监听
-        this.setupSettingsControls();
     }
 
     handleStart(e) {
@@ -713,132 +606,6 @@ class MathFishGame {
 
         // 更新UI
         this.updateUI();
-    }
-
-    setupSettingsControls() {
-        // 数字范围滑块
-        const numberRange = document.getElementById('numberRange');
-        const numberRangeValue = document.getElementById('numberRangeValue');
-
-        // 设置初始值
-        if (numberRange) {
-            numberRange.value = this.gameMode.maxNumber;
-            numberRangeValue.textContent = this.gameMode.maxNumber;
-
-            // 滑块值变化事件
-            numberRange.addEventListener('input', (e) => {
-                const value = parseInt(e.target.value);
-                numberRangeValue.textContent = value;
-            });
-
-            // 滑块释放时更新设置
-            numberRange.addEventListener('change', (e) => {
-                const value = parseInt(e.target.value);
-                this.updateSettings(this.gameMode.operation, value);
-            });
-        }
-
-        // 模式切换开关
-        const modeToggle = document.getElementById('modeToggle');
-
-        // 设置初始状态
-        if (modeToggle) {
-            modeToggle.checked = this.gameMode.operation === 'multiplication';
-
-            // 模式切换事件
-            modeToggle.addEventListener('change', (e) => {
-                const operation = e.target.checked ? 'multiplication' : 'addition';
-                this.updateSettings(operation, this.gameMode.maxNumber);
-            });
-        }
-    }
-
-    loadSettings() {
-        // 从localStorage加载保存的设置
-        const savedSettings = localStorage.getItem('hungryFishSettings');
-        if (savedSettings) {
-            try {
-                const settings = JSON.parse(savedSettings);
-                if (settings.operation) this.gameMode.operation = settings.operation;
-                if (settings.maxNumber) this.gameMode.maxNumber = Math.min(50, Math.max(1, settings.maxNumber));
-            } catch (e) {
-                console.log('加载设置失败，使用默认设置');
-            }
-        }
-    }
-
-    saveSettings() {
-        // 保存设置到localStorage
-        const settings = {
-            operation: this.gameMode.operation,
-            maxNumber: this.gameMode.maxNumber
-        };
-        localStorage.setItem('hungryFishSettings', JSON.stringify(settings));
-    }
-
-    updateSettings(operation, maxNumber) {
-        // 更新游戏设置
-        const oldOperation = this.gameMode.operation;
-        const oldMaxNumber = this.gameMode.maxNumber;
-
-        this.gameMode.operation = operation;
-        this.gameMode.maxNumber = Math.min(50, Math.max(1, maxNumber));
-
-        // 保存新设置
-        this.saveSettings();
-
-        // 如果设置有变化，重启游戏
-        if (oldOperation !== operation || oldMaxNumber !== this.gameMode.maxNumber) {
-            this.showSettingsChangeNotification();
-            setTimeout(() => {
-                this.restart();
-            }, 1000);
-        }
-    }
-
-    showSettingsChangeNotification() {
-        // 显示设置变更通知
-        const notification = document.createElement('div');
-        notification.id = 'settingsNotification';
-        notification.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            font-size: 18px;
-            text-align: center;
-            z-index: 3000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        notification.textContent = '设置已更改，游戏将重新开始...';
-
-        // 添加动画样式
-        if (!document.getElementById('settingsNotificationStyle')) {
-            const style = document.createElement('style');
-            style.id = 'settingsNotificationStyle';
-            style.textContent = `
-                @keyframes fadeInOut {
-                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        this.container.appendChild(notification);
-
-        // 2秒后移除通知
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 2000);
     }
 }
 
