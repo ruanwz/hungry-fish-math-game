@@ -17,8 +17,14 @@ class MathFishGame {
             difficulty: 'normal'
         };
 
+        // UI收起状态
+        this.uiCollapsed = false;
+
         // 加载保存的设置
         this.loadSettings();
+
+        // 加载UI状态
+        this.loadUIState();
 
         // 初始化音效和动画管理器
         this.audioManager = new AudioManager();
@@ -56,6 +62,8 @@ class MathFishGame {
         const oldOperation = this.gameMode.operation;
         const oldMaxNumber = this.gameMode.maxNumber;
 
+        console.log(`更新设置: 旧模式=${oldOperation}, 新模式=${operation}, 旧数字=${oldMaxNumber}, 新数字=${maxNumber}`);
+
         this.gameMode.operation = operation;
         this.gameMode.maxNumber = Math.min(50, Math.max(1, maxNumber));
 
@@ -64,10 +72,14 @@ class MathFishGame {
 
         // 如果设置有变化，重启游戏
         if (oldOperation !== operation || oldMaxNumber !== this.gameMode.maxNumber) {
+            console.log(`设置发生变化，准备重启游戏`);
             this.showSettingsChangeNotification();
             setTimeout(() => {
+                console.log(`执行游戏重启`);
                 this.restart();
             }, 1000);
+        } else {
+            console.log(`设置无变化，不重启游戏`);
         }
     }
 
@@ -135,21 +147,22 @@ class MathFishGame {
 
     createFish() {
         // 生成鱼的数字，根据游戏模式和设置
+        console.log(`createFish: 当前模式=${this.gameMode.operation}, 目标数字=${this.gameMode.maxNumber}`);
         let fishNumber;
         const maxNum = this.gameMode.maxNumber;
 
         if (this.gameMode.operation === 'addition') {
             // 加法模式下避免生成1（无法通过正数相加得到1）
-            // 如果设置的最大值大于1，使用设置值，否则随机生成
-            if (maxNum > 1) {
-                fishNumber = maxNum;
-            } else {
-                fishNumber = Math.floor(Math.random() * 9) + 2; // 生成2-10的数字
+            // 直接使用设置的目标数字
+            fishNumber = maxNum;
+            if (fishNumber === 1) {
+                fishNumber = 2; // 避免生成1
             }
         } else {
             // 乘法模式下直接使用设置值
             fishNumber = maxNum;
         }
+        console.log(`生成的鱼数字: ${fishNumber}`);
 
         this.fish = {
             x: this.width / 2,
@@ -286,12 +299,15 @@ class MathFishGame {
             this.audioManager.resumeAudioContext();
         });
 
-        // 音效控制按钮
+        // 音效控制按钮 - 支持触摸
         const soundToggle = document.getElementById('soundToggle');
-        soundToggle.addEventListener('click', () => {
+        const handleSoundToggle = () => {
             const isEnabled = this.audioManager.toggle();
             soundToggle.textContent = isEnabled ? '🔊' : '🔇';
-        });
+        };
+
+        soundToggle.addEventListener('click', handleSoundToggle);
+        soundToggle.addEventListener('touchstart', handleSoundToggle);
 
         // 窗口大小改变
         window.addEventListener('resize', () => {
@@ -300,9 +316,17 @@ class MathFishGame {
 
         // 设置控件事件监听
         this.setupSettingsControls();
+        this.setupUIToggle();
     }
 
     handleStart(e) {
+        // 如果游戏结束窗口显示，不处理拖拽事件
+        const gameOverElement = document.getElementById('gameOver');
+        if (gameOverElement.style.display === 'block') {
+            console.log('游戏结束窗口显示，忽略拖拽事件');
+            return;
+        }
+
         const point = this.getPointFromEvent(e);
         const bubble = this.getBubbleAtPoint(point.x, point.y);
 
@@ -772,11 +796,12 @@ class MathFishGame {
     }
 
     updateUI() {
+        console.log(`更新UI: 得分=${this.score}, 鱼大小=${this.fishSize}, 目标数字=${this.fish ? this.fish.number : '无'}, 泡泡数=${this.bubbles.length}`);
         document.getElementById('score').textContent = this.score;
         document.getElementById('fishSize').textContent = this.fishSize;
         document.getElementById('bubblesCount').textContent = this.bubbles.length;
         document.getElementById('fishProgress').textContent = `${this.fish.eatenCount}/${this.fish.maxEaten}`;
-        document.getElementById('targetNumber').textContent = this.fish.number;
+        document.getElementById('targetNumber').textContent = this.fish ? this.fish.number : '?';
     }
 
     gameLoop() {
@@ -801,7 +826,8 @@ class MathFishGame {
 
     checkGameOver() {
         // 防止重复触发游戏结束
-        if (this.isPaused || document.getElementById('gameOver').style.display === 'block') {
+        const gameOverElement = document.getElementById('gameOver');
+        if (this.isPaused || gameOverElement.style.display === 'block') {
             return;
         }
 
@@ -829,18 +855,62 @@ class MathFishGame {
         this.isPaused = true;
         document.getElementById('finalScore').textContent = this.score;
         document.getElementById('finalFishSize').textContent = this.fishSize;
-        document.getElementById('gameOver').style.display = 'block';
+
+        const gameOverElement = document.getElementById('gameOver');
+
+        // 使用CSS类来显示游戏结束窗口
+        gameOverElement.style.display = 'block';
+        gameOverElement.classList.add('show');
+
         console.log('游戏结束界面已显示，暂停状态：', this.isPaused);
+        console.log('游戏结束窗口样式：', {
+            display: gameOverElement.style.display,
+            zIndex: window.getComputedStyle(gameOverElement).zIndex,
+            pointerEvents: window.getComputedStyle(gameOverElement).pointerEvents,
+            visibility: window.getComputedStyle(gameOverElement).visibility,
+            classList: gameOverElement.classList.toString()
+        });
+
+        // 确保按钮可点击
+        const restartBtn = document.getElementById('restartButton');
+        const continueBtn = document.getElementById('continueButton');
+
+        if (restartBtn) {
+            restartBtn.style.display = 'inline-block';
+            restartBtn.disabled = false;
+            console.log('重新开始按钮状态：', {
+                display: restartBtn.style.display,
+                disabled: restartBtn.disabled,
+                visible: restartBtn.offsetParent !== null,
+                boundingRect: restartBtn.getBoundingClientRect()
+            });
+        }
+
+        if (continueBtn) {
+            continueBtn.style.display = 'inline-block';
+            continueBtn.disabled = false;
+            console.log('继续游戏按钮状态：', {
+                display: continueBtn.style.display,
+                disabled: continueBtn.disabled,
+                visible: continueBtn.offsetParent !== null,
+                boundingRect: continueBtn.getBoundingClientRect()
+            });
+        }
+
+        // 强制重绘以确保样式应用
+        gameOverElement.offsetHeight;
     }
 
     togglePause() {
-        console.log('togglePause被调用，当前游戏结束界面状态：', document.getElementById('gameOver').style.display);
+        const gameOverElement = document.getElementById('gameOver');
+        console.log('togglePause被调用，当前游戏结束界面状态：', gameOverElement.style.display);
 
         // 只有在游戏结束状态下才允许继续游戏
-        if (document.getElementById('gameOver').style.display === 'block') {
+        if (gameOverElement.style.display === 'block') {
             console.log('关闭游戏结束界面');
             this.isPaused = false;
-            document.getElementById('gameOver').style.display = 'none';
+            gameOverElement.style.display = 'none';
+            gameOverElement.classList.remove('show');
             // 重置游戏时间，避免立即再次触发游戏结束
             this.startTime = Date.now();
             console.log('游戏继续，暂停状态：', this.isPaused);
@@ -874,10 +944,54 @@ class MathFishGame {
         this.generateInitialBubbles();
 
         // 隐藏游戏结束界面
-        document.getElementById('gameOver').style.display = 'none';
+        const gameOverElement = document.getElementById('gameOver');
+        gameOverElement.style.display = 'none';
+        gameOverElement.classList.remove('show');
 
         // 更新UI
         this.updateUI();
+    }
+
+    toggleUI() {
+        this.uiCollapsed = !this.uiCollapsed;
+
+        const ui = document.getElementById('ui');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const soundToggle = document.getElementById('soundToggle');
+        const uiToggle = document.getElementById('uiToggle');
+
+        if (this.uiCollapsed) {
+            // 收起UI
+            ui.classList.add('collapsed');
+            settingsPanel.classList.add('collapsed');
+            soundToggle.classList.add('collapsed');
+            uiToggle.textContent = '👁️‍🗨️';
+            uiToggle.title = '展开界面';
+        } else {
+            // 展开UI
+            ui.classList.remove('collapsed');
+            settingsPanel.classList.remove('collapsed');
+            soundToggle.classList.remove('collapsed');
+            uiToggle.textContent = '👁️';
+            uiToggle.title = '收起界面';
+        }
+
+        // 保存UI状态到本地存储
+        localStorage.setItem('uiCollapsed', this.uiCollapsed);
+    }
+
+    loadUIState() {
+        // 从本地存储加载UI收起状态
+        const savedState = localStorage.getItem('uiCollapsed');
+        if (savedState !== null) {
+            this.uiCollapsed = savedState === 'true';
+            if (this.uiCollapsed) {
+                // 如果保存的状态是收起，应用收起状态
+                setTimeout(() => {
+                    this.toggleUI();
+                }, 100);
+            }
+        }
     }
 
     setupSettingsControls() {
@@ -890,16 +1004,109 @@ class MathFishGame {
             numberRange.value = this.gameMode.maxNumber;
             numberRangeValue.textContent = this.gameMode.maxNumber;
 
-            // 滑块值变化事件
-            numberRange.addEventListener('input', (e) => {
+            // 滑块值变化事件 - 支持触摸
+            const handleInput = (e) => {
                 const value = parseInt(e.target.value);
                 numberRangeValue.textContent = value;
+                console.log(`滑块input事件: ${value}`);
+                // 在手机上也立即更新设置（input事件在拖动时触发）
+                if ('ontouchstart' in window) {
+                    this.updateSettings(this.gameMode.operation, value);
+                }
+            };
+
+            const handleChange = (e) => {
+                const value = parseInt(e.target.value);
+                console.log(`滑块change事件: ${value}, 当前模式: ${this.gameMode.operation}`);
+                this.updateSettings(this.gameMode.operation, value);
+            };
+
+            // 增强的触摸事件处理
+            let isDragging = false;
+            let startX = 0;
+            let startValue = 0;
+
+            const handleTouchStart = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startValue = parseInt(numberRange.value);
+
+                numberRange.style.transform = 'scale(1.05)';
+                numberRange.focus();
+
+                console.log('滑块触摸开始', { startX, startValue });
+            };
+
+            const handleTouchMove = (e) => {
+                if (!isDragging) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                const touch = e.touches[0];
+                const currentX = touch.clientX;
+                const deltaX = currentX - startX;
+
+                // 计算新的值（基于滑动距离）
+                const sliderWidth = numberRange.offsetWidth;
+                const valueRange = parseInt(numberRange.max) - parseInt(numberRange.min);
+                const deltaValue = Math.round((deltaX / sliderWidth) * valueRange);
+
+                let newValue = startValue + deltaValue;
+                newValue = Math.max(parseInt(numberRange.min), Math.min(parseInt(numberRange.max), newValue));
+
+                if (newValue !== parseInt(numberRange.value)) {
+                    numberRange.value = newValue;
+                    numberRangeValue.textContent = newValue;
+
+                    // 触发input事件
+                    const inputEvent = new Event('input', { bubbles: true });
+                    numberRange.dispatchEvent(inputEvent);
+
+                    console.log('滑块触摸移动', { deltaX, newValue });
+                }
+            };
+
+            const handleTouchEnd = (e) => {
+                if (!isDragging) return;
+
+                e.preventDefault();
+                isDragging = false;
+                numberRange.style.transform = 'scale(1)';
+
+                // 触发change事件
+                const changeEvent = new Event('change', { bubbles: true });
+                numberRange.dispatchEvent(changeEvent);
+
+                console.log('滑块触摸结束', { finalValue: numberRange.value });
+            };
+
+            // 标准事件监听
+            numberRange.addEventListener('input', handleInput);
+            numberRange.addEventListener('change', handleChange);
+
+            // 触摸事件监听
+            numberRange.addEventListener('touchstart', handleTouchStart, { passive: false });
+            numberRange.addEventListener('touchmove', handleTouchMove, { passive: false });
+            numberRange.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+            // 鼠标事件增强
+            numberRange.addEventListener('mousedown', () => {
+                numberRange.style.transform = 'scale(1.05)';
             });
 
-            // 滑块释放时更新设置
-            numberRange.addEventListener('change', (e) => {
-                const value = parseInt(e.target.value);
-                this.updateSettings(this.gameMode.operation, value);
+            numberRange.addEventListener('mouseup', () => {
+                numberRange.style.transform = 'scale(1)';
+            });
+
+            // 确保滑块在触摸时能够正常工作
+            numberRange.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
             });
         }
 
@@ -914,34 +1121,174 @@ class MathFishGame {
             this.updateModeDisplay(); // 更新模式显示
             this.updateModeLabels(); // 更新标签状态
 
-            // 模式切换事件
-            modeToggle.addEventListener('change', (e) => {
+            // 模式切换事件 - 支持触摸
+            const handleModeChange = (e) => {
                 const operation = e.target.checked ? 'multiplication' : 'addition';
+                console.log(`模式切换: ${operation}, 当前目标数字: ${this.gameMode.maxNumber}`);
                 this.updateModeDisplay(); // 更新显示
                 this.updateModeLabels(); // 更新标签状态
                 this.updateSettings(operation, this.gameMode.maxNumber);
+            };
+
+            modeToggle.addEventListener('change', handleModeChange);
+
+            // 为触摸设备添加更好的反馈
+            modeToggle.addEventListener('touchstart', () => {
+                modeToggle.style.transform = 'scale(0.95)';
             });
+            modeToggle.addEventListener('touchend', () => {
+                modeToggle.style.transform = 'scale(1)';
+            });
+
+            // 让标签也可以点击切换模式（更友好的触摸体验）
+            if (additionLabel) {
+                additionLabel.addEventListener('click', () => {
+                    console.log('点击加法标签');
+                    modeToggle.checked = false;
+                    handleModeChange({ target: modeToggle });
+                });
+                additionLabel.addEventListener('touchstart', (e) => {
+                    console.log('触摸加法标签');
+                    e.preventDefault();
+                    modeToggle.checked = false;
+                    handleModeChange({ target: modeToggle });
+                });
+            }
+
+            if (multiplicationLabel) {
+                multiplicationLabel.addEventListener('click', () => {
+                    console.log('点击乘法标签');
+                    modeToggle.checked = true;
+                    handleModeChange({ target: modeToggle });
+                });
+                multiplicationLabel.addEventListener('touchstart', (e) => {
+                    console.log('触摸乘法标签');
+                    e.preventDefault();
+                    modeToggle.checked = true;
+                    handleModeChange({ target: modeToggle });
+                });
+            }
         }
 
-        // 游戏结束按钮事件绑定
+        // 游戏结束按钮事件绑定 - 支持触摸和鼠标
         const restartButton = document.getElementById('restartButton');
         const continueButton = document.getElementById('continueButton');
 
         if (restartButton) {
-            restartButton.addEventListener('click', (e) => {
-                console.log('重新开始按钮被点击');
+            const handleRestart = (e) => {
+                console.log('重新开始按钮被触发', e.type, e.target);
                 e.preventDefault();
                 e.stopPropagation();
-                this.restart();
+
+                // 确保按钮可见且可用
+                if (restartButton.style.display === 'none' || restartButton.disabled) {
+                    console.log('按钮不可用，忽略点击');
+                    return;
+                }
+
+                // 添加按钮反馈
+                restartButton.style.transform = 'scale(0.95)';
+                restartButton.style.background = '#3d8b40';
+
+                setTimeout(() => {
+                    restartButton.style.transform = 'scale(1)';
+                    restartButton.style.background = '#4CAF50';
+                    this.restart();
+                }, 150);
+            };
+
+            // 移除之前的事件监听器（防止重复绑定）
+            restartButton.removeEventListener('click', handleRestart);
+            restartButton.removeEventListener('touchstart', handleRestart);
+
+            // 绑定新的事件监听器
+            restartButton.addEventListener('click', handleRestart);
+            restartButton.addEventListener('touchstart', handleRestart, { passive: false });
+
+            // 添加触摸反馈
+            restartButton.addEventListener('touchstart', () => {
+                restartButton.style.transform = 'scale(0.95)';
+                restartButton.style.background = '#3d8b40';
+            });
+
+            restartButton.addEventListener('touchend', () => {
+                setTimeout(() => {
+                    restartButton.style.transform = 'scale(1)';
+                    restartButton.style.background = '#4CAF50';
+                }, 100);
             });
         }
 
         if (continueButton) {
-            continueButton.addEventListener('click', (e) => {
-                console.log('继续游戏按钮被点击');
+            const handleContinue = (e) => {
+                console.log('继续游戏按钮被触发', e.type, e.target);
                 e.preventDefault();
                 e.stopPropagation();
-                this.togglePause();
+
+                // 确保按钮可见且可用
+                if (continueButton.style.display === 'none' || continueButton.disabled) {
+                    console.log('按钮不可用，忽略点击');
+                    return;
+                }
+
+                // 添加按钮反馈
+                continueButton.style.transform = 'scale(0.95)';
+                continueButton.style.background = '#3d8b40';
+
+                setTimeout(() => {
+                    continueButton.style.transform = 'scale(1)';
+                    continueButton.style.background = '#4CAF50';
+                    this.togglePause();
+                }, 150);
+            };
+
+            // 移除之前的事件监听器（防止重复绑定）
+            continueButton.removeEventListener('click', handleContinue);
+            continueButton.removeEventListener('touchstart', handleContinue);
+
+            // 绑定新的事件监听器
+            continueButton.addEventListener('click', handleContinue);
+            continueButton.addEventListener('touchstart', handleContinue, { passive: false });
+
+            // 添加触摸反馈
+            continueButton.addEventListener('touchstart', () => {
+                continueButton.style.transform = 'scale(0.95)';
+                continueButton.style.background = '#3d8b40';
+            });
+
+            continueButton.addEventListener('touchend', () => {
+                setTimeout(() => {
+                    continueButton.style.transform = 'scale(1)';
+                    continueButton.style.background = '#4CAF50';
+                }, 100);
+            });
+        }
+    }
+
+    setupUIToggle() {
+        const uiToggle = document.getElementById('uiToggle');
+        if (uiToggle) {
+            // 支持鼠标点击和触摸操作
+            const handleToggle = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleUI();
+            };
+
+            uiToggle.addEventListener('click', handleToggle);
+            uiToggle.addEventListener('touchstart', handleToggle);
+
+            // 设置初始状态
+            uiToggle.textContent = this.uiCollapsed ? '👁️‍🗨️' : '👁️';
+            uiToggle.title = this.uiCollapsed ? '展开界面' : '收起界面';
+
+            // 添加触摸反馈
+            uiToggle.addEventListener('touchstart', () => {
+                uiToggle.style.transform = 'translateX(-50%) scale(0.9)';
+            });
+
+            uiToggle.addEventListener('touchend', () => {
+                uiToggle.style.transform = 'translateX(-50%) scale(1)';
             });
         }
     }
@@ -1006,6 +1353,18 @@ class MathFishGame {
 let game;
 window.addEventListener('load', () => {
     game = new MathFishGame();
+
+    // 添加调试函数 - 手动触发游戏结束
+    window.testGameOver = () => {
+        console.log('手动触发游戏结束测试');
+        if (game) {
+            game.score = 100;
+            game.fishSize = 20;
+            game.showGameOver();
+        }
+    };
+
+    console.log('游戏初始化完成，输入 testGameOver() 可以手动测试游戏结束窗口');
 });
 
 // 防止页面滚动

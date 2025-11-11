@@ -85,6 +85,215 @@
             font-weight: bold;
             z-index: 100;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            transition: all 0.2s ease;
+        }
+
+        #fishTarget:hover {
+            background: rgba(255, 215, 0, 1);
+            transform: scale(1.05);
+        }
+
+        #fishTarget:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        #fishTarget.dragging {
+            z-index: 1000;
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        #uiToggle {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 150;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        #uiToggle:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        #ui.collapsed {
+            transform: translateX(-250px);
+            opacity: 0.3;
+        }
+
+        #settingsPanel.collapsed {
+            transform: translateX(250px);
+            opacity: 0.3;
+        }
+
+        #soundToggle.collapsed {
+            transform: translateX(50px);
+            opacity: 0.3;
+        }
+
+        /* 添加过渡动画 */
+        #ui, #settingsPanel, #soundToggle {
+            transition: all 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            #ui {
+                font-size: 14px;
+                max-width: 160px;
+                padding: 6px 10px;
+            }
+
+            #settingsPanel {
+                font-size: 12px;
+                padding: 10px;
+                min-width: 160px;
+                top: 50px;
+            }
+
+            #uiToggle {
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #ui {
+                font-size: 12px;
+                max-width: 140px;
+                padding: 4px 8px;
+                top: 5px;
+                left: 5px;
+            }
+
+            #settingsPanel {
+                font-size: 11px;
+                padding: 8px;
+                min-width: 140px;
+                top: 45px;
+                right: 5px;
+                max-height: 70vh; /* 限制最大高度 */
+                overflow-y: auto; /* 支持滚动 */
+            }
+
+            #uiToggle {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+                top: 5px;
+            }
+
+            #soundToggle {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+                top: 5px;
+                right: 5px;
+            }
+
+            /* 手机触摸优化 */
+            .range-slider {
+                height: 8px; /* 增加滑块轨道高度 */
+                margin: 12px 0;
+                /* 增加触摸区域 */
+                padding: 10px 0;
+                background: transparent;
+                position: relative;
+            }
+
+            .range-slider::-webkit-slider-thumb {
+                width: 24px; /* 增大滑块按钮 */
+                height: 24px;
+                /* 增加触摸目标大小 */
+                position: relative;
+            }
+
+            .range-slider::-webkit-slider-thumb::before {
+                content: '';
+                position: absolute;
+                top: -10px;
+                left: -10px;
+                right: -10px;
+                bottom: -10px;
+                background: transparent;
+            }
+
+            .range-slider::-moz-range-thumb {
+                width: 24px; /* 增大滑块按钮 */
+                height: 24px;
+                /* 增加触摸目标大小 */
+                position: relative;
+            }
+
+            .range-slider::-moz-range-thumb::before {
+                content: '';
+                position: absolute;
+                top: -10px;
+                left: -10px;
+                right: -10px;
+                bottom: -10px;
+                background: transparent;
+            }
+
+            .toggle-switch {
+                width: 80px; /* 减小开关宽度适应小屏幕 */
+                height: 40px; /* 增加高度便于触摸 */
+            }
+
+            .toggle-label {
+                border-radius: 40px; /* 匹配新的高度 */
+            }
+
+            .toggle-label:before {
+                height: 32px; /* 增大滑块按钮 */
+                width: 32px;
+            }
+
+            .toggle-input:checked + .toggle-label:before {
+                transform: translateX(40px); /* 调整移动距离 */
+            }
+
+            .toggle-text {
+                font-size: 10px; /* 减小字体大小 */
+            }
+
+            .toggle-text.addition {
+                left: 8px;
+            }
+
+            .toggle-text.multiplication {
+                right: 8px;
+            }
+
+            /* 增大触摸区域 */
+            .settings-group {
+                margin-bottom: 20px; /* 增加组间距 */
+            }
+
+            label {
+                padding: 8px 0; /* 增大标签点击区域 */
+                display: block;
+            }
+
+            /* 滑块数值显示优化 */
+            #numberRangeValue {
+                font-size: 14px; /* 增大数值显示 */
+                margin-left: 8px;
+            }
         }
 
         #soundToggle {
@@ -303,6 +512,18 @@
             text-align: center;
             z-index: 2000;
             display: none;
+            /* 确保游戏结束窗口在最高层级 */
+            pointer-events: auto;
+            /* 确保不被其他元素阻挡 */
+            isolation: isolate;
+            /* 添加过渡动画 */
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #gameOver.show {
+            display: block;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
         }
 
         #gameOver h2 {
@@ -314,15 +535,68 @@
             background: #4CAF50;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 15px 30px;
             border-radius: 10px;
             font-size: 16px;
             cursor: pointer;
-            margin: 5px;
+            margin: 10px;
+            min-width: 120px;
+            /* 触摸优化 */
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: all 0.2s ease;
         }
 
         #gameOver button:hover {
             background: #45a049;
+        }
+
+        #gameOver button:active {
+            transform: scale(0.95);
+            background: #3d8b40;
+        }
+
+        /* 手机端按钮优化 */
+        @media (max-width: 480px) {
+            #gameOver {
+                padding: 20px;
+                width: 90%;
+                max-width: 300px;
+            }
+
+            #gameOver h2 {
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+
+            #gameOver button {
+                padding: 12px 25px;
+                font-size: 14px;
+                margin: 8px;
+                min-width: 100px;
+                /* 增强触摸区域 */
+                min-height: 44px;
+                line-height: 1.2;
+            }
+        }
+
+        /* 增强按钮触摸响应 */
+        #gameOver button {
+            /* 增加触摸目标大小 */
+            position: relative;
+            overflow: hidden;
+        }
+
+        #gameOver button::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            background: transparent;
         }
 
         .bubble {
@@ -431,6 +705,8 @@
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
+
+        <button id="uiToggle">👁️</button>
 
         <div id="ui">
             <div class="score">得分: <span id="score">0</span></div>
