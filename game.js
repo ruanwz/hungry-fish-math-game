@@ -36,7 +36,12 @@ class MathFishGame {
     }
 
     createFish() {
-        const fishNumber = Math.floor(Math.random() * 10) + 1;
+        // 生成鱼的数字，避免生成1，因为在加法游戏中无法通过正数相加得到1
+        let fishNumber = Math.floor(Math.random() * 10) + 1;
+        if (fishNumber === 1) {
+            fishNumber = Math.floor(Math.random() * 9) + 2; // 重新生成2-10的数字
+        }
+
         this.fish = {
             x: this.width / 2,
             y: this.height / 2,
@@ -69,13 +74,11 @@ class MathFishGame {
         // 但不要生成和鱼数字相同的泡泡，避免用户不需要拖动
         const target = this.fish.number;
 
-        // 生成一些小于目标数字的泡泡
+        // 生成一些有用的泡泡（不等于目标数字，且可以组合成目标数字）
         for (let i = 0; i < 8; i++) {
-            let number;
-            do {
-                number = Math.floor(Math.random() * target) + 1;
-            } while (number === target); // 确保不等于目标数字
-
+            // 生成1到target-1的数字（确保不等于target）
+            const maxNumber = target - 1;
+            const number = Math.floor(Math.random() * maxNumber) + 1;
             this.createBubble(null, null, number);
         }
 
@@ -433,15 +436,23 @@ class MathFishGame {
 
         if (!this.canFormTargetNumber(target, currentNumbers)) {
             // 如果不能组合成目标数字，添加缺失的数字
+            // 但要避免直接添加目标数字（我们希望用户通过合并来创造目标数字）
             let missingNumber = 1;
 
-            // 找到一个能让系统重新有解的数字
+            // 找到一个能让系统重新有解的数字，优先选择非目标数字
             for (let i = 1; i <= target; i++) {
+                if (i === target) continue; // 跳过目标数字本身
                 const testNumbers = [...currentNumbers, i];
                 if (this.canFormTargetNumber(target, testNumbers)) {
                     missingNumber = i;
                     break;
                 }
+            }
+
+            // 如果只有添加目标数字才能解决问题，那么添加一个较小的数字（如1）
+            // 这样玩家至少可以通过合并来逐步接近目标
+            if (missingNumber === target) {
+                missingNumber = 1; // 总是可以添加1，因为1可以参与任何加法组合
             }
 
             // 添加这个缺失的数字
@@ -460,41 +471,38 @@ class MathFishGame {
         // 分析当前泡泡，看看缺少什么数字
         let newNumber;
 
-        // 检查是否缺少等于目标数字的泡泡
-        const hasTargetBubbles = currentBubbles.includes(target);
-        if (!hasTargetBubbles && Math.random() < 0.3) {
-            newNumber = target;
+        // 重要：永远不要直接生成目标数字的泡泡
+        // 我们希望玩家必须通过合并来创造目标数字
+
+        // 生成可以帮助合成目标数字的数字（但不包括目标数字本身）
+        const possibleNumbers = [];
+        for (let i = 1; i < target; i++) {
+            possibleNumbers.push(i);
+        }
+
+        // 优先生成能与现有泡泡组合的数字
+        let bestNumber = null;
+        for (let num of currentBubbles) {
+            if (num < target && (num + num) <= target) {
+                bestNumber = num;
+                break;
+            }
+        }
+
+        if (bestNumber && Math.random() < 0.5) {
+            newNumber = bestNumber;
         } else {
-            // 生成可以帮助合成目标数字的数字
-            const possibleNumbers = [];
-            for (let i = 1; i < target; i++) {
-                possibleNumbers.push(i);
-            }
+            // 随机选择一个有用的数字，确保不会破坏可解性
+            const validNumbers = possibleNumbers.filter(num => {
+                const testNumbers = [...currentBubbles, num];
+                return this.canFormTargetNumber(target, testNumbers);
+            });
 
-            // 优先生成能与现有泡泡组合的数字
-            let bestNumber = null;
-            for (let num of currentBubbles) {
-                if (num < target && (num + num) <= target) {
-                    bestNumber = num;
-                    break;
-                }
-            }
-
-            if (bestNumber && Math.random() < 0.5) {
-                newNumber = bestNumber;
+            if (validNumbers.length > 0) {
+                newNumber = validNumbers[Math.floor(Math.random() * validNumbers.length)];
             } else {
-                // 随机选择一个有用的数字，确保不会破坏可解性
-                const validNumbers = possibleNumbers.filter(num => {
-                    const testNumbers = [...currentBubbles, num];
-                    return this.canFormTargetNumber(target, testNumbers);
-                });
-
-                if (validNumbers.length > 0) {
-                    newNumber = validNumbers[Math.floor(Math.random() * validNumbers.length)];
-                } else {
-                    // 如果没有有效的数字，选择1（总是安全的）
-                    newNumber = 1;
-                }
+                // 如果没有有效的数字，选择1（总是安全的）
+                newNumber = 1;
             }
         }
 
@@ -556,8 +564,11 @@ class MathFishGame {
     }
 
     restart() {
-        // 保存当前鱼的数字
-        const currentFishNumber = this.fish ? this.fish.number : Math.floor(Math.random() * 10) + 1;
+        // 保存当前鱼的数字，但避免1（加法游戏中无法通过正数相加得到1）
+        let currentFishNumber = this.fish ? this.fish.number : Math.floor(Math.random() * 10) + 1;
+        if (currentFishNumber === 1) {
+            currentFishNumber = Math.floor(Math.random() * 9) + 2; // 重新生成2-10的数字
+        }
 
         // 重置游戏状态
         this.score = 0;
