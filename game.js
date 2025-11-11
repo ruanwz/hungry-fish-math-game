@@ -140,10 +140,15 @@ class MathFishGame {
 
         if (this.gameMode.operation === 'addition') {
             // 加法模式下避免生成1（无法通过正数相加得到1）
-            fishNumber = Math.floor(Math.random() * (maxNum - 1)) + 2; // 生成2-maxNum的数字
+            // 如果设置的最大值大于1，使用设置值，否则随机生成
+            if (maxNum > 1) {
+                fishNumber = maxNum;
+            } else {
+                fishNumber = Math.floor(Math.random() * 9) + 2; // 生成2-10的数字
+            }
         } else {
-            // 乘法模式下可以生成1-maxNum的任何数字
-            fishNumber = Math.floor(Math.random() * maxNum) + 1; // 生成1-maxNum的数字
+            // 乘法模式下直接使用设置值
+            fishNumber = maxNum;
         }
 
         this.fish = {
@@ -740,16 +745,55 @@ class MathFishGame {
 
         // 模式切换开关
         const modeToggle = document.getElementById('modeToggle');
+        const additionLabel = document.querySelector('.addition-label');
+        const multiplicationLabel = document.querySelector('.multiplication-label');
 
         // 设置初始状态
         if (modeToggle) {
             modeToggle.checked = this.gameMode.operation === 'multiplication';
+            this.updateModeDisplay(); // 更新模式显示
+            this.updateModeLabels(); // 更新标签状态
 
             // 模式切换事件
             modeToggle.addEventListener('change', (e) => {
                 const operation = e.target.checked ? 'multiplication' : 'addition';
+                this.updateModeDisplay(); // 更新显示
+                this.updateModeLabels(); // 更新标签状态
                 this.updateSettings(operation, this.gameMode.maxNumber);
             });
+        }
+    }
+
+    updateModeLabels() {
+        // 更新模式标签的激活状态
+        const modeToggle = document.getElementById('modeToggle');
+        const additionLabel = document.querySelector('.addition-label');
+        const multiplicationLabel = document.querySelector('.multiplication-label');
+
+        if (modeToggle && additionLabel && multiplicationLabel) {
+            if (modeToggle.checked) {
+                // 乘法模式
+                multiplicationLabel.classList.add('active');
+                additionLabel.classList.remove('active');
+            } else {
+                // 加法模式
+                additionLabel.classList.add('active');
+                multiplicationLabel.classList.remove('active');
+            }
+        }
+    }
+
+    updateModeDisplay() {
+        // 更新当前模式显示
+        const modeText = document.getElementById('currentModeText');
+        if (modeText) {
+            if (this.gameMode.operation === 'addition') {
+                modeText.textContent = '加法模式';
+                modeText.className = 'current-mode addition-mode';
+            } else {
+                modeText.textContent = '乘法模式';
+                modeText.className = 'current-mode multiplication-mode';
+            }
         }
     }
 
