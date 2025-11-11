@@ -183,12 +183,51 @@ class MathFishGame {
         // 但不要生成和鱼数字相同的泡泡，避免用户不需要拖动
         const target = this.fish.number;
 
-        // 生成一些有用的泡泡（不等于目标数字，且可以组合成目标数字）
-        for (let i = 0; i < 8; i++) {
-            // 生成1到target-1的数字（确保不等于target）
-            const maxNumber = target - 1;
-            const number = Math.floor(Math.random() * maxNumber) + 1;
-            this.createBubble(null, null, number);
+        if (this.gameMode.operation === 'multiplication') {
+            // 乘法模式：生成目标数字的因数
+            if (target === 1) {
+                // 如果目标是1，只生成1
+                for (let i = 0; i < 6; i++) {
+                    this.createBubble(null, null, 1);
+                }
+            } else {
+                // 寻找目标数字的因数
+                const factors = [];
+                for (let i = 1; i <= Math.sqrt(target); i++) {
+                    if (target % i === 0) {
+                        if (i !== target) factors.push(i);
+                        if (i !== target / i && target / i !== target && target / i <= 10) {
+                            factors.push(target / i);
+                        }
+                    }
+                }
+
+                // 如果没有合适的因数，生成一些小数字
+                if (factors.length === 0) {
+                    factors.push(1, 2, 3);
+                }
+
+                // 生成因数泡泡
+                for (let i = 0; i < 6; i++) {
+                    const factor = factors[Math.floor(Math.random() * factors.length)];
+                    this.createBubble(null, null, factor);
+                }
+
+                // 再生成一些小数字作为补充
+                for (let i = 0; i < 2; i++) {
+                    const smallNumber = Math.floor(Math.random() * 3) + 1;
+                    this.createBubble(null, null, smallNumber);
+                }
+            }
+        } else {
+            // 加法模式：使用原来的逻辑
+            // 生成一些有用的泡泡（不等于目标数字，且可以组合成目标数字）
+            for (let i = 0; i < 8; i++) {
+                // 生成1到target-1的数字（确保不等于target）
+                const maxNumber = target - 1;
+                const number = Math.floor(Math.random() * maxNumber) + 1;
+                this.createBubble(null, null, number);
+            }
         }
 
         // 不再生成等于目标数字的泡泡，让用户必须通过合并来创造
@@ -340,8 +379,14 @@ class MathFishGame {
     }
 
     mergeBubbles(bubble1, bubble2) {
-        // 合并泡泡
-        const newNumber = bubble1.number + bubble2.number;
+        // 合并泡泡，根据游戏模式选择加法或乘法
+        let newNumber;
+        if (this.gameMode.operation === 'multiplication') {
+            newNumber = bubble1.number * bubble2.number;
+        } else {
+            newNumber = bubble1.number + bubble2.number;
+        }
+
         const newX = (bubble1.x + bubble2.x) / 2;
         const newY = (bubble1.y + bubble2.y) / 2;
 
@@ -525,20 +570,63 @@ class MathFishGame {
     }
 
     canFormTargetNumber(target, currentNumbers) {
-        // 检查给定的数字是否能通过加法组合成目标数字
-        // 使用动态规划方法
-        const dp = new Array(target + 1).fill(false);
-        dp[0] = true; // 0可以通过不选择任何数字得到
+        // 检查给定的数字是否能通过加法或乘法组合成目标数字
+        // 根据游戏模式选择不同的算法
 
-        for (let num of currentNumbers) {
-            for (let i = target; i >= num; i--) {
-                if (dp[i - num]) {
-                    dp[i] = true;
+        if (this.gameMode.operation === 'multiplication') {
+            // 乘法模式：检查是否能通过乘法得到目标数字
+            // 对于乘法，我们需要检查是否存在数字的乘积等于目标
+            if (target === 1) {
+                // 如果目标是1，只要有1就可以（1乘以任何数都是那个数）
+                return currentNumbers.includes(1);
+            }
+
+            // 检查是否有数字的乘积等于目标
+            return this.canFormTargetByMultiplication(target, currentNumbers);
+        } else {
+            // 加法模式：检查是否能通过加法组合成目标数字
+            // 使用动态规划方法
+            const dp = new Array(target + 1).fill(false);
+            dp[0] = true; // 0可以通过不选择任何数字得到
+
+            for (let num of currentNumbers) {
+                for (let i = target; i >= num; i--) {
+                    if (dp[i - num]) {
+                        dp[i] = true;
+                    }
+                }
+            }
+
+            return dp[target];
+        }
+    }
+
+    canFormTargetByMultiplication(target, numbers) {
+        // 辅助方法：检查是否可以通过乘法得到目标数字
+        // 简化版本：检查是否存在两个数字的乘积等于目标
+
+        // 如果只有一个数字，检查是否能通过自乘得到目标
+        if (numbers.length === 1) {
+            return numbers[0] * numbers[0] === target;
+        }
+
+        // 检查是否存在两个数字的乘积等于目标
+        for (let i = 0; i < numbers.length; i++) {
+            for (let j = 0; j < numbers.length; j++) {
+                if (i !== j && numbers[i] * numbers[j] === target) {
+                    return true;
                 }
             }
         }
 
-        return dp[target];
+        // 也检查单个数字是否能通过自乘得到目标（平方）
+        for (let num of numbers) {
+            if (num * num === target) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     ensureValidCombinations() {
@@ -551,20 +639,53 @@ class MathFishGame {
             // 但要避免直接添加目标数字（我们希望用户通过合并来创造目标数字）
             let missingNumber = 1;
 
-            // 找到一个能让系统重新有解的数字，优先选择非目标数字
-            for (let i = 1; i <= target; i++) {
-                if (i === target) continue; // 跳过目标数字本身
-                const testNumbers = [...currentNumbers, i];
-                if (this.canFormTargetNumber(target, testNumbers)) {
-                    missingNumber = i;
-                    break;
-                }
-            }
+            if (this.gameMode.operation === 'multiplication') {
+                // 乘法模式：寻找目标数字的因数
+                if (target === 1) {
+                    missingNumber = 1;
+                } else {
+                    // 寻找目标数字的因数（不包括目标数字本身）
+                    const factors = [];
+                    for (let i = 1; i <= Math.sqrt(target); i++) {
+                        if (target % i === 0) {
+                            if (i !== target) factors.push(i);
+                            if (i !== target / i && target / i !== target) {
+                                factors.push(target / i);
+                            }
+                        }
+                    }
 
-            // 如果只有添加目标数字才能解决问题，那么添加一个较小的数字（如1）
-            // 这样玩家至少可以通过合并来逐步接近目标
-            if (missingNumber === target) {
-                missingNumber = 1; // 总是可以添加1，因为1可以参与任何加法组合
+                    if (factors.length > 0) {
+                        // 选择一个能让系统有解的因数
+                        for (let factor of factors) {
+                            const testNumbers = [...currentNumbers, factor];
+                            if (this.canFormTargetNumber(target, testNumbers)) {
+                                missingNumber = factor;
+                                break;
+                            }
+                        }
+                    } else {
+                        // 如果没有合适的因数，添加1或2
+                        missingNumber = (target > 2) ? 2 : 1;
+                    }
+                }
+            } else {
+                // 加法模式：使用加法逻辑
+                // 找到一个能让系统重新有解的数字，优先选择非目标数字
+                for (let i = 1; i <= target; i++) {
+                    if (i === target) continue; // 跳过目标数字本身
+                    const testNumbers = [...currentNumbers, i];
+                    if (this.canFormTargetNumber(target, testNumbers)) {
+                        missingNumber = i;
+                        break;
+                    }
+                }
+
+                // 如果只有添加目标数字才能解决问题，那么添加一个较小的数字（如1）
+                // 这样玩家至少可以通过合并来逐步接近目标
+                if (missingNumber === target) {
+                    missingNumber = 1; // 总是可以添加1，因为1可以参与任何加法组合
+                }
             }
 
             // 添加这个缺失的数字
@@ -586,35 +707,64 @@ class MathFishGame {
         // 重要：永远不要直接生成目标数字的泡泡
         // 我们希望玩家必须通过合并来创造目标数字
 
-        // 生成可以帮助合成目标数字的数字（但不包括目标数字本身）
-        const possibleNumbers = [];
-        for (let i = 1; i < target; i++) {
-            possibleNumbers.push(i);
-        }
-
-        // 优先生成能与现有泡泡组合的数字
-        let bestNumber = null;
-        for (let num of currentBubbles) {
-            if (num < target && (num + num) <= target) {
-                bestNumber = num;
-                break;
-            }
-        }
-
-        if (bestNumber && Math.random() < 0.5) {
-            newNumber = bestNumber;
-        } else {
-            // 随机选择一个有用的数字，确保不会破坏可解性
-            const validNumbers = possibleNumbers.filter(num => {
-                const testNumbers = [...currentBubbles, num];
-                return this.canFormTargetNumber(target, testNumbers);
-            });
-
-            if (validNumbers.length > 0) {
-                newNumber = validNumbers[Math.floor(Math.random() * validNumbers.length)];
-            } else {
-                // 如果没有有效的数字，选择1（总是安全的）
+        if (this.gameMode.operation === 'multiplication') {
+            // 乘法模式：生成能帮助乘法合成的数字
+            // 对于乘法，我们需要考虑因数
+            if (target === 1) {
                 newNumber = 1;
+            } else {
+                // 寻找目标数字的因数
+                const factors = [];
+                for (let i = 1; i <= Math.sqrt(target); i++) {
+                    if (target % i === 0) {
+                        factors.push(i);
+                        if (i !== target / i) {
+                            factors.push(target / i);
+                        }
+                    }
+                }
+
+                // 过滤掉目标数字本身，选择其他因数
+                const validFactors = factors.filter(f => f !== target && f <= 10);
+
+                if (validFactors.length > 0) {
+                    newNumber = validFactors[Math.floor(Math.random() * validFactors.length)];
+                } else {
+                    // 如果没有合适的因数，生成一个小数字
+                    newNumber = Math.floor(Math.random() * 3) + 1;
+                }
+            }
+        } else {
+            // 加法模式：生成能帮助加法合成的数字
+            const possibleNumbers = [];
+            for (let i = 1; i < target; i++) {
+                possibleNumbers.push(i);
+            }
+
+            // 优先生成能与现有泡泡组合的数字
+            let bestNumber = null;
+            for (let num of currentBubbles) {
+                if (num < target && (num + num) <= target) {
+                    bestNumber = num;
+                    break;
+                }
+            }
+
+            if (bestNumber && Math.random() < 0.5) {
+                newNumber = bestNumber;
+            } else {
+                // 随机选择一个有用的数字，确保不会破坏可解性
+                const validNumbers = possibleNumbers.filter(num => {
+                    const testNumbers = [...currentBubbles, num];
+                    return this.canFormTargetNumber(target, testNumbers);
+                });
+
+                if (validNumbers.length > 0) {
+                    newNumber = validNumbers[Math.floor(Math.random() * validNumbers.length)];
+                } else {
+                    // 如果没有有效的数字，选择1（总是安全的）
+                    newNumber = 1;
+                }
             }
         }
 
@@ -650,6 +800,11 @@ class MathFishGame {
     }
 
     checkGameOver() {
+        // 防止重复触发游戏结束
+        if (this.isPaused || document.getElementById('gameOver').style.display === 'block') {
+            return;
+        }
+
         // 游戏结束条件：没有泡泡了或鱼变得太大
         const currentTime = Date.now();
         const gameDuration = (currentTime - this.startTime) / 1000; // 秒
@@ -658,30 +813,45 @@ class MathFishGame {
         const currentNumbers = this.bubbles.map(b => b.number);
         const canFormTarget = this.canFormTargetNumber(this.fish.number, currentNumbers);
 
+        // 调试日志
+        if (this.gameMode.operation === 'multiplication') {
+            console.log(`乘法模式检查: 目标=${this.fish.number}, 当前数字=[${currentNumbers.join(',')}], 可合成=${canFormTarget}, 泡泡数=${this.bubbles.length}`);
+        }
+
         if (!canFormTarget || this.fishSize >= 30 || gameDuration > 600) { // 10分钟或鱼大小达到30
+            console.log(`游戏结束条件触发: 可合成=${canFormTarget}, 鱼大小=${this.fishSize}, 游戏时长=${gameDuration}`);
             this.showGameOver();
         }
     }
 
     showGameOver() {
+        console.log('显示游戏结束界面');
         this.isPaused = true;
         document.getElementById('finalScore').textContent = this.score;
         document.getElementById('finalFishSize').textContent = this.fishSize;
         document.getElementById('gameOver').style.display = 'block';
+        console.log('游戏结束界面已显示，暂停状态：', this.isPaused);
     }
 
     togglePause() {
-        this.isPaused = !this.isPaused;
-        document.getElementById('gameOver').style.display = 'none';
+        console.log('togglePause被调用，当前游戏结束界面状态：', document.getElementById('gameOver').style.display);
+
+        // 只有在游戏结束状态下才允许继续游戏
+        if (document.getElementById('gameOver').style.display === 'block') {
+            console.log('关闭游戏结束界面');
+            this.isPaused = false;
+            document.getElementById('gameOver').style.display = 'none';
+            // 重置游戏时间，避免立即再次触发游戏结束
+            this.startTime = Date.now();
+            console.log('游戏继续，暂停状态：', this.isPaused);
+        } else {
+            // 正常暂停/继续逻辑
+            this.isPaused = !this.isPaused;
+            console.log('正常暂停切换，暂停状态：', this.isPaused);
+        }
     }
 
     restart() {
-        // 保存当前鱼的数字，但避免1（加法游戏中无法通过正数相加得到1）
-        let currentFishNumber = this.fish ? this.fish.number : Math.floor(Math.random() * 10) + 1;
-        if (currentFishNumber === 1) {
-            currentFishNumber = Math.floor(Math.random() * 9) + 2; // 重新生成2-10的数字
-        }
-
         // 重置游戏状态
         this.score = 0;
         this.fishSize = 10;
@@ -698,18 +868,8 @@ class MathFishGame {
             this.fish.element.remove();
         }
 
-        // 重新创建游戏元素，保持鱼的数字不变
-        this.fish = {
-            x: this.width / 2,
-            y: this.height / 2,
-            targetX: this.width / 2,
-            targetY: this.height / 2,
-            number: currentFishNumber,
-            element: this.createFishElement(currentFishNumber),
-            eatenCount: 0,
-            maxEaten: 5
-        };
-        this.updateFishPosition();
+        // 重新创建鱼，使用当前游戏设置的目标数字
+        this.createFish();
 
         this.generateInitialBubbles();
 
@@ -762,82 +922,38 @@ class MathFishGame {
                 this.updateSettings(operation, this.gameMode.maxNumber);
             });
         }
+
+        // 游戏结束按钮事件绑定
+        const restartButton = document.getElementById('restartButton');
+        const continueButton = document.getElementById('continueButton');
+
+        if (restartButton) {
+            restartButton.addEventListener('click', (e) => {
+                console.log('重新开始按钮被点击');
+                e.preventDefault();
+                e.stopPropagation();
+                this.restart();
+            });
+        }
+
+        if (continueButton) {
+            continueButton.addEventListener('click', (e) => {
+                console.log('继续游戏按钮被点击');
+                e.preventDefault();
+                e.stopPropagation();
+                this.togglePause();
+            });
+        }
     }
 
     updateModeLabels() {
-        // 更新模式标签的激活状态
-        const modeToggle = document.getElementById('modeToggle');
-        const additionLabel = document.querySelector('.addition-label');
-        const multiplicationLabel = document.querySelector('.multiplication-label');
-
-        if (modeToggle && additionLabel && multiplicationLabel) {
-            if (modeToggle.checked) {
-                // 乘法模式
-                multiplicationLabel.classList.add('active');
-                additionLabel.classList.remove('active');
-            } else {
-                // 加法模式
-                additionLabel.classList.add('active');
-                multiplicationLabel.classList.remove('active');
-            }
-        }
+        // 模式标签激活状态现在由CSS自动处理，不需要JavaScript干预
+        // 保持这个方法以备将来需要动态更新
     }
 
     updateModeDisplay() {
-        // 更新当前模式显示
-        const modeText = document.getElementById('currentModeText');
-        if (modeText) {
-            if (this.gameMode.operation === 'addition') {
-                modeText.textContent = '加法模式';
-                modeText.className = 'current-mode addition-mode';
-            } else {
-                modeText.textContent = '乘法模式';
-                modeText.className = 'current-mode multiplication-mode';
-            }
-        }
-    }
-
-    loadSettings() {
-        // 从localStorage加载保存的设置
-        const savedSettings = localStorage.getItem('hungryFishSettings');
-        if (savedSettings) {
-            try {
-                const settings = JSON.parse(savedSettings);
-                if (settings.operation) this.gameMode.operation = settings.operation;
-                if (settings.maxNumber) this.gameMode.maxNumber = Math.min(50, Math.max(1, settings.maxNumber));
-            } catch (e) {
-                console.log('加载设置失败，使用默认设置');
-            }
-        }
-    }
-
-    saveSettings() {
-        // 保存设置到localStorage
-        const settings = {
-            operation: this.gameMode.operation,
-            maxNumber: this.gameMode.maxNumber
-        };
-        localStorage.setItem('hungryFishSettings', JSON.stringify(settings));
-    }
-
-    updateSettings(operation, maxNumber) {
-        // 更新游戏设置
-        const oldOperation = this.gameMode.operation;
-        const oldMaxNumber = this.gameMode.maxNumber;
-
-        this.gameMode.operation = operation;
-        this.gameMode.maxNumber = Math.min(50, Math.max(1, maxNumber));
-
-        // 保存新设置
-        this.saveSettings();
-
-        // 如果设置有变化，重启游戏
-        if (oldOperation !== operation || oldMaxNumber !== this.gameMode.maxNumber) {
-            this.showSettingsChangeNotification();
-            setTimeout(() => {
-                this.restart();
-            }, 1000);
-        }
+        // 移除了重复的模式显示，现在只在切换开关旁边显示
+        // 这个方法现在可以留空或删除
     }
 
     showSettingsChangeNotification() {
