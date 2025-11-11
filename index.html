@@ -41,20 +41,20 @@
             left: 10px;
             z-index: 100;
             color: white;
-            font-size: 18px;
+            font-size: 16px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.3);
+            padding: 8px 12px;
+            border-radius: 10px;
+            max-width: 200px;
         }
 
-        .score {
-            margin-bottom: 10px;
-        }
-
-        .fish-size {
-            margin-bottom: 10px;
+        .score, .fish-size, .fish-progress, .fish-target, .bubbles-count {
+            margin-bottom: 6px;
+            line-height: 1.2;
         }
 
         .fish-progress {
-            margin-bottom: 10px;
             color: #FFD700;
             font-weight: bold;
         }
@@ -252,10 +252,9 @@
             <div class="score">得分: <span id="score">0</span></div>
             <div class="fish-size">鱼的大小: <span id="fishSize">10</span></div>
             <div class="fish-progress">升级进度: <span id="fishProgress">0/5</span></div>
+            <div class="fish-target">鱼需要: <span id="targetNumber">?</span></div>
             <div class="bubbles-count">泡泡数量: <span id="bubblesCount">0</span></div>
         </div>
-
-        <div id="fishTarget">鱼需要: <span id="targetNumber">?</span></div>
 
         <div id="instructions">
             拖动泡泡合并数字 → 鱼会吃掉相同数字的泡泡 → 让鱼长大！

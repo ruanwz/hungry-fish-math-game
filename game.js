@@ -66,18 +66,20 @@ class MathFishGame {
 
     generateInitialBubbles() {
         // 生成初始泡泡，确保有一些可以组合成目标数字
+        // 但不要生成和鱼数字相同的泡泡，避免用户不需要拖动
         const target = this.fish.number;
 
         // 生成一些小于目标数字的泡泡
-        for (let i = 0; i < 6; i++) {
-            const number = Math.floor(Math.random() * target) + 1;
+        for (let i = 0; i < 8; i++) {
+            let number;
+            do {
+                number = Math.floor(Math.random() * target) + 1;
+            } while (number === target); // 确保不等于目标数字
+
             this.createBubble(null, null, number);
         }
 
-        // 生成一些等于目标数字的泡泡
-        for (let i = 0; i < 2; i++) {
-            this.createBubble(null, null, target);
-        }
+        // 不再生成等于目标数字的泡泡，让用户必须通过合并来创造
     }
 
     createBubble(x, y, number) {
@@ -361,9 +363,11 @@ class MathFishGame {
             this.fish.element.classList.remove('eating');
         }, 500);
 
-        // 生成新泡泡 - 智能生成有用的数字
+        // 生成新泡泡 - 智能生成有用的数字，并确保仍然可解
         setTimeout(() => {
             this.createSmartBubble();
+            // 再次验证组合有效性
+            this.ensureValidCombinations();
         }, 1000);
     }
 
@@ -405,9 +409,53 @@ class MathFishGame {
         });
     }
 
+    canFormTargetNumber(target, currentNumbers) {
+        // 检查给定的数字是否能通过加法组合成目标数字
+        // 使用动态规划方法
+        const dp = new Array(target + 1).fill(false);
+        dp[0] = true; // 0可以通过不选择任何数字得到
+
+        for (let num of currentNumbers) {
+            for (let i = target; i >= num; i--) {
+                if (dp[i - num]) {
+                    dp[i] = true;
+                }
+            }
+        }
+
+        return dp[target];
+    }
+
+    ensureValidCombinations() {
+        // 确保当前泡泡可以组合成目标数字
+        const target = this.fish.number;
+        const currentNumbers = this.bubbles.map(b => b.number);
+
+        if (!this.canFormTargetNumber(target, currentNumbers)) {
+            // 如果不能组合成目标数字，添加缺失的数字
+            let missingNumber = 1;
+
+            // 找到一个能让系统重新有解的数字
+            for (let i = 1; i <= target; i++) {
+                const testNumbers = [...currentNumbers, i];
+                if (this.canFormTargetNumber(target, testNumbers)) {
+                    missingNumber = i;
+                    break;
+                }
+            }
+
+            // 添加这个缺失的数字
+            this.createBubble(null, null, missingNumber);
+            console.log(`添加了缺失的数字 ${missingNumber} 以确保可以组合成 ${target}`);
+        }
+    }
+
     createSmartBubble() {
         const target = this.fish.number;
         const currentBubbles = this.bubbles.map(b => b.number);
+
+        // 首先确保可以组合成目标数字
+        this.ensureValidCombinations();
 
         // 分析当前泡泡，看看缺少什么数字
         let newNumber;
@@ -435,8 +483,18 @@ class MathFishGame {
             if (bestNumber && Math.random() < 0.5) {
                 newNumber = bestNumber;
             } else {
-                // 随机选择一个有用的数字
-                newNumber = possibleNumbers[Math.floor(Math.random() * possibleNumbers.length)];
+                // 随机选择一个有用的数字，确保不会破坏可解性
+                const validNumbers = possibleNumbers.filter(num => {
+                    const testNumbers = [...currentBubbles, num];
+                    return this.canFormTargetNumber(target, testNumbers);
+                });
+
+                if (validNumbers.length > 0) {
+                    newNumber = validNumbers[Math.floor(Math.random() * validNumbers.length)];
+                } else {
+                    // 如果没有有效的数字，选择1（总是安全的）
+                    newNumber = 1;
+                }
             }
         }
 
@@ -477,9 +535,10 @@ class MathFishGame {
         const gameDuration = (currentTime - this.startTime) / 1000; // 秒
 
         // 检查是否还有可以合成的泡泡
-        const hasValidBubbles = this.bubbles.some(bubble => bubble.number <= this.fish.number);
+        const currentNumbers = this.bubbles.map(b => b.number);
+        const canFormTarget = this.canFormTargetNumber(this.fish.number, currentNumbers);
 
-        if (!hasValidBubbles || this.fishSize >= 30 || gameDuration > 600) { // 10分钟或鱼大小达到30
+        if (!canFormTarget || this.fishSize >= 30 || gameDuration > 600) { // 10分钟或鱼大小达到30
             this.showGameOver();
         }
     }
